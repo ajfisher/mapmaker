@@ -1,0 +1,15 @@
+{
+  "name": "mapper",
+  "version": "1.0.0",
+  "description": "Mapping tool to make SVG maps",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "AJfisher <ajfisher.td@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "d3": "^4.7.4",
+    "d3-node": "^1.0.1",
+  }
+}
