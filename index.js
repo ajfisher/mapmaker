@@ -2,12 +2,42 @@ const D3Node = require('d3-node');
 const d3 = require('d3');
 const fs = require('fs');
 
-const width = 1440;
-const height = 900;
+const width = 1000;
+const height = 700;
 
-const site_num = 5000;
+const site_num = 500;
+
+const show_initial_points = false;
+
+const styles = `
+circle {
+    fill-opacity: 0.9;
+    r: 2;
+}
+
+g.sites circle {
+    fill: crimson;
+}
+
+rect.background {
+    fill: antiquewhite;
+}
+
+g.tessel path {
+    stroke: ivory;
+    //fill: none;
+    stroke-width: 0.5px;
+}
+
+g.delaunay line {
+    stroke-width: 0.2px;
+    stroke: darkslategrey;
+    opacity: 0.5;
+}
+`;
 
 var sites = [];
+var color = d3.scaleSequential(d3.interpolateViridis);
 
 function generate_map() {
     console.log("generating map");
@@ -28,16 +58,20 @@ function generate_map() {
         .attr('height', height);
 
     var voronoi = d3.voronoi().extent([ [0, 0], [width, height] ]);
+    sites = voronoi(sites).polygons().map(d3.polygonCentroid);
     var diagram = voronoi(sites);
+    var polygons = diagram.polygons();
 
     // show the cells
-    var polygons = svg.append("g")
+    var polys = svg.append("g")
         .attr("class", "tessel")
         .selectAll("path")
-        .data(voronoi.polygons(sites))
+        .data(polygons)
         .enter()
         .append('path')
-        .attr('d', d => ("M" + d.join("L") + "Z"));
+        .attr('d', d => ("M" + d.join("L") + "Z"))
+        .attr('fill', (d, i) => color(i/site_num) );
+
 
     // now show the links
     var links = svg.append("g")
@@ -52,10 +86,9 @@ function generate_map() {
         .attr('y2', d => d.target[1]);
 
     // add the circles
-    var sites_group = svg.append("g")
-        .attr("class", "sites");
-
-    var sites_circles = sites_group.selectAll('sites')
+    var sites_points = svg.append("g")
+        .attr("class", "sites")
+        .selectAll('sites')
         .data(sites)
         .enter()
         .append('circle')
@@ -65,31 +98,8 @@ function generate_map() {
 }
 
 
-const styles = `
-circle {
-    fill: crimson;
-    fill-opacity: 0.9;
-    r: 1;
-}
 
-rect.background {
-    fill: antiquewhite;
-}
-
-g.tessel path {
-    stroke: ivory;
-    fill: none;
-    stroke-width: 0.5px;
-}
-
-g.delaunay line {
-    stroke-width: 0.2px;
-    stroke: darkslategrey;
-}
-
-`;
-
-var options = {
+const options = {
   svgStyles: styles,
   d3Module: d3
 };
