@@ -65,32 +65,32 @@ function create_island() {
         highpoint = highpoint * radius;
 
         // get each of the neighbours of the start poly and iterate overthem
-        diagram.cells[ poly_queue[i] ].halfedges.forEach( (e) => {
-            console.log(e);
-            if (typeof(polygons[e]) === 'undefined') {
-                return;
-            } else if (! polygons[e].used) {
-                console.log("setting a height");
-                polygons[e].height = polygons[e].height + height;
+        polygons[ poly_queue[i] ].neighbours.forEach( (e) => {
+            if (! polygons[e].used) {
+                //console.log("setting a height");
 
+                polygons[e].height = polygons[e].height + height;
                 // set a maximum height to 1.0
                 if (polygons[e].height > 1) {polygons[e].height = 1.0;}
+
                 polygons[e].used = true;
 
+                //console.log(e, polygons[e]);
+                //console.log("---");
                 poly_queue.push(e);
             }
         });
     }
 
-    console.log(diagram.cells[0]);
-    console.log(sites[0])
-    console.log(polygons[0]);
-    console.log(poly_links[0]);
+    //console.log(diagram.cells[0]);
+    //console.log(sites[0])
+    //console.log(polygons[startpoly]);
+    //console.log(poly_links[0]);
 
 
     polys.attr('fill', (d, i) => { 
-        if (polygons[i].height) {
-            console.log("height set");
+        if (polygons[i].height > 0) {
+            //console.log("height set");
             return "grey";
         } else {
             return "blue";
@@ -135,7 +135,29 @@ function generate_map() {
     poly_links = diagram.links();
 
     // do some initialisation;
-    polygons.forEach( p => { p.used = false; });
+    polygons.forEach( (p, i) => {
+        // set up for being used later
+        p.used = false;
+        p.height = 0;
+
+        // determine polygon neighbours
+        p.index = i;
+
+        let neighbours = [];
+        diagram.cells[i].halfedges.forEach( (e) => {
+            let edge = diagram.edges[e];
+            if (edge.left && edge.right) {
+                edgeidx = edge.left.index;
+                if (edgeidx === i) {
+                    // we're pointing at ourselves
+                    edgeidx = edge.right.index;
+                }
+                neighbours.push(edgeidx);
+            }
+        });
+        p.neighbours = neighbours;
+
+    });
 
     // show the cells
     polys = svg.append("g")
