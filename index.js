@@ -11,8 +11,8 @@ const rng = seedrandom('testing scenario2.', { global: true });
 const width = 1000;
 const height = 700;
 
-const site_num = 8000;
-const num_islands = 5;
+const site_num = 4000;
+const num_islands = process.argv[2] || 10;
 
 const show_initial_points = false;
 
@@ -34,7 +34,7 @@ g.tessel path {
     stroke: ivory;
     //fill: none;
     stroke-width: 0.2px;
-    stroke-opacity: 0.5;
+    stroke-opacity: 0.1;
     fill-opacity: 0.8;
 }
 
@@ -49,19 +49,24 @@ var diagram, polygons;
 var polys, poly_links;
 var sites = [];
 //var poly_queue = []; // used to hold queue of polygons for processing
-var color = d3.scaleSequential(d3c.interpolateSpectral); //interpolateViridis);
+var color = d3.scaleSequential(d3c.interpolateSpectral);
 
-function create_island() {
+function create_island(options) {
+
+    let opts = options || {};
+
+    let first_land = opts.first_land || false;
 
     // creates an island at a random point.
     let startpoly = diagram.find(
-        Math.random() * (0.8 * width) + (0.1 * width),
-        Math.random() * ( 0.8 * height) + (0.1 * height)
+        Math.random() * (0.6 * width) + (0.2 * width),
+        Math.random() * ( 0.6 * height) + (0.2 * height)
     ).index;
 
     let highpoint = (Math.random() * 0.5) + 0.5; // bind between 0.5 and 1
-    let radius = (Math.random() * 0.1) + 0.899; // bind between 0.9 and 0.999
+    let radius = (Math.random() * 0.05) + 0.95; // bind between 0.95 and 0.999
     let sharpness = (Math.random() * 0.5); // bind between 0 - 0.5
+    //sharpness = 0.5;
 
     let poly_queue = [];
 
@@ -73,8 +78,12 @@ function create_island() {
     // put heights around the island values
     for (let i = 0; i < poly_queue.length && highpoint > 0.01; i++) {
 
-        //highpoint = polygons[ poly_queue[i] ].height * radius;
-        highpoint = highpoint * radius;
+
+        if (first_land) {
+            highpoint = polygons[ poly_queue[i] ].height * radius;
+        } else {
+            highpoint = highpoint * radius;
+        }
 
         // get each of the neighbours of the start poly and iterate overthem
         polygons[ poly_queue[i] ].neighbours.forEach( (e) => {
@@ -83,12 +92,12 @@ function create_island() {
                 let h_mod = Math.random() * sharpness + 1.1 - sharpness;
                 if (sharpness == 0) { h_mod = 1; } // deal with boundary case
 
-
                 // this is currently wrong and needs some additional work on this.
                 //polygons[e].height = polygons[e].height + highpoint;// * h_mod;
-                polygons[e].height = polygons[e].height * h_mod;
+                polygons[e].height = polygons[e].height + highpoint * h_mod;
                 //console.log(highpoint, h_mod, highpoint * h_mod, polygons[e].height);
                 //console.log(polygons[e].height);
+                //console.log("---");
                 // set a maximum height to 1.0
                 if (polygons[e].height > 1) {
                     polygons[e].height = 1.0;
@@ -212,7 +221,11 @@ function generate_map() {
 **/
 
     for (let i = 0; i < num_islands; i++) {
-        create_island();
+        if (i == 0) {
+            create_island({first_land: true});
+        } else {
+            create_island();
+        }
         reset_poly_state();
     }
 
