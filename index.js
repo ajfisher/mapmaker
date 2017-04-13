@@ -8,10 +8,10 @@ const D3Node = require('d3-node');
 const seedrandom = require('seedrandom');
 const rng = seedrandom('testing scenario2.', { global: true });
 
-const width = 1000;
-const height = 700;
+const width = 1350;
+const height = 780;
 
-const site_num = 4000;
+const site_num = 10000;
 const num_islands = process.argv[2] || 10;
 
 const show_initial_points = false;
@@ -34,7 +34,7 @@ g.tessel path {
     stroke: ivory;
     //fill: none;
     stroke-width: 0.2px;
-    stroke-opacity: 0.1;
+    stroke-opacity: 0.05;
     fill-opacity: 0.8;
 }
 
@@ -63,10 +63,17 @@ function create_island(options) {
         Math.random() * ( 0.6 * height) + (0.2 * height)
     ).index;
 
-    let highpoint = (Math.random() * 0.5) + 0.5; // bind between 0.5 and 1
-    let radius = (Math.random() * 0.05) + 0.95; // bind between 0.95 and 0.999
+    let highpoint, radius;
+
+    if (first_land) {
+        // build a skewed towards a bigger initial island
+        highpoint = (Math.random() * 0.3) + 0.7; // bind between 0.7 and 1
+        radius = (Math.random() * 0.05) + 0.95; // bind between 0.95 and 0.999
+    } else {
+        highpoint = (Math.random() * 0.8) + 0.2; // bind between 0.2 and 1
+        radius = (Math.random() * 0.05) + 0.95; // bind between 0.95 and 0.999
+    }
     let sharpness = (Math.random() * 0.5); // bind between 0 - 0.5
-    //sharpness = 0.5;
 
     let poly_queue = [];
 
@@ -77,7 +84,6 @@ function create_island(options) {
 
     // put heights around the island values
     for (let i = 0; i < poly_queue.length && highpoint > 0.01; i++) {
-
 
         if (first_land) {
             highpoint = polygons[ poly_queue[i] ].height * radius;
@@ -93,15 +99,7 @@ function create_island(options) {
                 if (sharpness == 0) { h_mod = 1; } // deal with boundary case
 
                 // this is currently wrong and needs some additional work on this.
-                //polygons[e].height = polygons[e].height + highpoint;// * h_mod;
                 polygons[e].height = polygons[e].height + highpoint * h_mod;
-                //console.log(highpoint, h_mod, highpoint * h_mod, polygons[e].height);
-                //console.log(polygons[e].height);
-                //console.log("---");
-                // set a maximum height to 1.0
-                if (polygons[e].height > 1) {
-                    polygons[e].height = 1.0;
-                }
 
                 polygons[e].used = true;
 
@@ -125,13 +123,17 @@ function reset_poly_state() {
 function colour_polys() {
     // sets the colour of the polygons based on height map.
 
-
     let min = _.minBy(polygons, 'height');
     let max = _.maxBy(polygons, 'height');
     console.log(min.height, max.height);
     let scale = d3.scaleLinear().domain([min.height, max.height]).range([0, 1]);
-    //polys.attr('fill', d => color(1 - scale(d.height) ) );
-    polys.attr('fill', d => color(1 - d.height ) );
+    polys.attr('fill', d => color(1 - scale(d.height) ) );
+    //polys.attr('fill', d => color(1 - d.height ) );
+}
+
+function draw_coast() {
+    // sets a coastline
+    let shoreline = [];
 
 }
 
