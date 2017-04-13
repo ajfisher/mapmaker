@@ -67,17 +67,20 @@ function create_island(options) {
 
     if (first_land) {
         // build a skewed towards a bigger initial island
-        highpoint = (Math.random() * 0.3) + 0.7; // bind between 0.7 and 1
+        highpoint = (Math.random() * 0.2) + 0.8; // bind between 0.8 and 1
         radius = (Math.random() * 0.05) + 0.95; // bind between 0.95 and 0.999
     } else {
-        highpoint = (Math.random() * 0.8) + 0.2; // bind between 0.2 and 1
-        radius = (Math.random() * 0.05) + 0.95; // bind between 0.95 and 0.999
+        highpoint = (Math.random() * 0.5) + 0.5; // bind between 0.5 and 1
+        radius = (Math.random() * 0.3) + 0.7; // bind between 0.95 and 0.999
     }
-    let sharpness = (Math.random() * 0.5); // bind between 0 - 0.5
+    let gradient = (Math.random() * 0.55) + 0.2; // bind between 0.2 - 0.75
+    //highpoint = 0.9;
+    //radius = 0.75;
+    //gradient = 0.25;
 
     let poly_queue = [];
 
-    console.log(startpoly, highpoint, radius, sharpness);
+    console.log(startpoly, highpoint, radius, gradient);
     polygons[startpoly].height = highpoint;
     polygons[startpoly].used = true;
     poly_queue.push(startpoly);
@@ -95,11 +98,15 @@ function create_island(options) {
         polygons[ poly_queue[i] ].neighbours.forEach( (e) => {
             if (! polygons[e].used) {
                 //calculate a modifier for the height
-                let h_mod = Math.random() * sharpness + 1.1 - sharpness;
-                if (sharpness == 0) { h_mod = 1; } // deal with boundary case
+                let h_mod = Math.random() * gradient + 1.1 - gradient;
+                if (gradient == 0) { h_mod = 1; } // deal with boundary case
 
                 // this is currently wrong and needs some additional work on this.
                 polygons[e].height = polygons[e].height + highpoint * h_mod;
+
+                if (polygons[e].height > 1.0) {
+                    polygons[e].height = 1;
+                }
 
                 polygons[e].used = true;
 
@@ -127,8 +134,8 @@ function colour_polys() {
     let max = _.maxBy(polygons, 'height');
     console.log(min.height, max.height);
     let scale = d3.scaleLinear().domain([min.height, max.height]).range([0, 1]);
-    polys.attr('fill', d => color(1 - scale(d.height) ) );
-    //polys.attr('fill', d => color(1 - d.height ) );
+    //polys.attr('fill', d => color(1 - scale(d.height) ) );
+    polys.attr('fill', d => color(1 - d.height ) );
 }
 
 function draw_coast() {
