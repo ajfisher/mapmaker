@@ -6,49 +6,30 @@ const d3c = require('d3-scale-chromatic');
 const D3Node = require('d3-node');
 
 const seedrandom = require('seedrandom');
-const rng = seedrandom('testing scenario2.', { global: true });
+const rng = seedrandom('test scenario2.', { global: true });
+
+const styles = require('./lib/styles');
 
 const width = 1350;
 const height = 780;
 
-const site_num = 10000;
+const site_num = 15000;
 const num_islands = process.argv[2] || 10;
 
 const show_initial_points = false;
 
-const styles = `
-circle {
-    fill-opacity: 0.9;
-    r: 1;
-}
-
-g.sites circle {
-    fill: crimson;
-}
-
-rect.background {
-    fill: antiquewhite;
-}
-
-g.tessel path {
-    stroke: ivory;
-    //fill: none;
-    stroke-width: 0.2px;
-    stroke-opacity: 0.05;
-    fill-opacity: 0.8;
-}
-
-g.delaunay line {
-    stroke-width: 0.2px;
-    stroke: darkslategrey;
-    opacity: 0.5;
-}
-`;
+const show = {
+    site_points: false,
+    links: false,
+    polys: true,
+    msl: 0.1,
+};
 
 var diagram, polygons;
 var polys, poly_links;
 var sites = [];
-//var poly_queue = []; // used to hold queue of polygons for processing
+var coastline;
+
 var color = d3.scaleSequential(d3c.interpolateSpectral);
 
 function create_island(options) {
@@ -66,7 +47,7 @@ function create_island(options) {
     let highpoint, radius;
 
     if (first_land) {
-        // build a skewed towards a bigger initial island
+        // build skewed towards a bigger initial island
         highpoint = (Math.random() * 0.2) + 0.8; // bind between 0.8 and 1
         radius = (Math.random() * 0.05) + 0.95; // bind between 0.95 and 0.999
     } else {
@@ -114,10 +95,73 @@ function create_island(options) {
             }
         });
     }
-
-    // colour the polygons based on height
-
 }
+
+function draw_coastline(level) {
+
+    let msl = level || show.msl; // level set for sea level.
+
+    let c_data = contour(msl);
+
+    // now append to the SVG.
+    coastline = svg.append("g")
+        .attr("class", "coastline")
+        .append("path")
+        .attr("d", c_data.line + "Z");
+}
+
+function draw_contour(height) {
+    // draws a contour line.
+
+    let c_data = contour(height);
+    // now append to the SVG.
+    coastline = svg.append("g")
+        .attr("class", "contour")
+        .append("path")
+        .attr("d", c_data.line + "Z");
+}
+
+function contour(height) {
+    // used to draw a contour line at the given height
+    //
+    let h = height || 0.9;
+
+    let contour_line = "";
+    let contour_edges = [];
+
+    polygons.forEach( (p, i) => {
+        if (p.height > h) {
+
+            diagram.cells[i].halfedges.forEach( e => {
+                let edge = diagram.edges[e];
+                // look at the cells either side of the edge we're looking at
+                if (edge.left && edge.right) {
+                    let edgeidx = edge.left.index;
+                    // check not self
+                    if (edgeidx === i) {
+                        edgeidx = edge.right.index; // get the other if it is self
+                    }
+                    // now check the other polygon and as we're already HIGHER
+                    // than H, if this is LOWER than H then by definition
+                    // this edge is the boundary between the two.
+                    if (polygons[edgeidx].height < h) {
+                        contour_line = contour_line + "M" + edge.join("L");
+                        //more experimentation needed here
+                        /**svg_line = svg_line + "M" + edge[0];
+                        svg_line += "Q"
+                        svg_line += edge[0][0] + ((edge[0][0] - polygons[edgeidx].data[0]) *0.5) + ',';
+                        svg_line += edge[0][1] + ((edge[0][1] - polygons[edgeidx].data[1]) *0.5);
+                        svg_line += ", " + edge[1];**/
+                        contour_edges.push(edge);
+                    }
+                }
+            });
+        }
+    });
+
+    return ( { edges: contour_edges, line: contour_line });
+}
+
 
 function reset_poly_state() {
     // resets the polygons "dirty" state back to normal
@@ -132,18 +176,63 @@ function colour_polys() {
 
     let min = _.minBy(polygons, 'height');
     let max = _.maxBy(polygons, 'height');
-    console.log(min.height, max.height);
+    //console.log(min.height, max.height);
     let scale = d3.scaleLinear().domain([min.height, max.height]).range([0, 1]);
-    //polys.attr('fill', d => color(1 - scale(d.height) ) );
-    polys.attr('fill', d => color(1 - d.height ) );
+    if (show.polys ) {
+        //polys.attr('fill', d => color(1 - scale(d.height) ) );
+        polys.attr('fill', d => color(1 - d.height ) );
+        /**polys.attr('class', d => {
+            if ( d.height < 0.2 ) {
+                return "sea";
+            } else {
+                return "land";
+            }
+        });**/
+    }
 }
 
-function draw_coast() {
-    // sets a coastline
-    let shoreline = [];
+function draw_mesh() {
+    // used to draw the mesh structure of the map
 
+    if (show.polys) {
+        // show the cells
+        polys = svg.append("g")
+            .attr("class", "tessel")
+            .selectAll("path")
+            .data(polygons)
+            .enter()
+            .append('path')
+            .attr('id', (d,i) => i)
+            .attr('d', d => ("M" + d.join("L") + "Z"))
+            .attr('fill', (d, i) => color(i/site_num) );
+    }
+
+    if (show.links) {
+        // now show the links
+        var links = svg.append("g")
+            .attr("class", "delaunay")
+            .selectAll("line")
+            .data(poly_links)
+            .enter()
+            .append("line")
+            .attr('x1', d => d.source[0])
+            .attr('y1', d => d.source[1])
+            .attr('x2', d => d.target[0])
+            .attr('y2', d => d.target[1]);
+    }
+
+    if (show.site_points) {
+        // add the points for the sites
+        var sites_points = svg.append("g")
+            .attr("class", "sites")
+            .selectAll('sites')
+            .data(sites)
+            .enter()
+            .append('circle')
+            .attr("cx", d => d[0] )
+            .attr("cy", d => d[1] );
+    }
 }
-
 
 function generate_map() {
     console.log("generating map");
@@ -194,43 +283,10 @@ function generate_map() {
 
     });
 
-    // show the cells
-    polys = svg.append("g")
-        .attr("class", "tessel")
-        .selectAll("path")
-        .data(polygons)
-        .enter()
-        .append('path')
-        .attr('id', (d,i) => i)
-        .attr('d', d => ("M" + d.join("L") + "Z"))
-        .attr('fill', (d, i) => color(i/site_num) );
-
-
-    // now show the links
-/**    var links = svg.append("g")
-        .attr("class", "delaunay")
-        .selectAll("line")
-        .data(poly_links)
-        .enter()
-        .append("line")
-        .attr('x1', d => d.source[0])
-        .attr('y1', d => d.source[1])
-        .attr('x2', d => d.target[0])
-        .attr('y2', d => d.target[1]);
-**/
-    // add the circles
-/**    var sites_points = svg.append("g")
-        .attr("class", "sites")
-        .selectAll('sites')
-        .data(sites)
-        .enter()
-        .append('circle')
-        .attr("cx", d => d[0] )
-        .attr("cy", d => d[1] );
-**/
+    draw_mesh();
 
     for (let i = 0; i < num_islands; i++) {
-        if (i == 0) {
+        if (i < 2) {
             create_island({first_land: true});
         } else {
             create_island();
@@ -238,6 +294,7 @@ function generate_map() {
         reset_poly_state();
     }
 
+    draw_coastline();
     colour_polys();
 }
 
