@@ -13,15 +13,18 @@ const styles = require('./lib/styles');
 const width = 1350;
 const height = 780;
 
-const site_num = 15000;
+const site_num = 400;
 const num_islands = process.argv[2] || 10;
 
 const show_initial_points = false;
 
 const show = {
-    site_points: false,
+    site_points: true,
     links: false,
-    polys: true,
+    polys: false,
+    tripolys: true,
+    vertices: true,
+    v_edges: true,
     msl: 0.1,
 };
 
@@ -203,22 +206,59 @@ function colour_polys() {
 function draw_mesh() {
     // used to draw the mesh structure of the map
 
+    if (show.tripolys) {
+        // show the triangle polys
+        let tris = svg.append("g")
+            .attr("class", "tris")
+            .selectAll("path")
+            .data(mesh.tris)
+            .enter()
+            .append("path")
+            .attr('id', (d,i) => i)
+            .attr('d', d => ("M" + d.join("L") + "Z"))
+            .attr('fill', (d, i) => color(i/site_num) );
+    }
     if (show.polys) {
         // show the cells
         polys = svg.append("g")
             .attr("class", "tessel")
             .selectAll("path")
-            .data(polygons)
+            .data(mesh.voronoi.polygons())
             .enter()
             .append('path')
             .attr('id', (d,i) => i)
             .attr('d', d => ("M" + d.join("L") + "Z"))
-            .attr('fill', (d, i) => color(i/site_num) );
+            //.attr('fill', (d, i) => color(i/site_num) );
+    }
+
+    if (show.v_edges) {
+        polys = svg.append("g")
+            .attr("class", "vedge")
+            .selectAll("vedges")
+            .data(mesh.edges)
+            .enter()
+            .append("line")
+            .attr('x1', d => mesh.vertices[d[0]][0])
+            .attr('y1', d => mesh.vertices[d[0]][1])
+            .attr('x2', d => mesh.vertices[d[1]][0])
+            .attr('y2', d => mesh.vertices[d[1]][1]);
+    }
+
+    if (show.vertices) {
+        // show the vertices of the polygons
+        let vertices = svg.append("g")
+            .attr("class", "vertices")
+            .selectAll("vertices")
+            .data(mesh.vertices)
+            .enter()
+            .append('circle')
+            .attr("cx", d => d[0] )
+            .attr("cy", d => d[1] )
     }
 
     if (show.links) {
         // now show the links
-        var links = svg.append("g")
+        let links = svg.append("g")
             .attr("class", "delaunay")
             .selectAll("line")
             .data(poly_links)
@@ -235,7 +275,7 @@ function draw_mesh() {
         var sites_points = svg.append("g")
             .attr("class", "sites")
             .selectAll('sites')
-            .data(sites)
+            .data(mesh.points)
             .enter()
             .append('circle')
             .attr("cx", d => d[0] )
@@ -257,9 +297,96 @@ function initialise_mesh() {
     });
 
     var voronoi = d3.voronoi().extent([ [0, 0], [width, height] ]);
+
+    // apply a layer of relaxation to the sites in order to make them less clumpy
     sites = voronoi(sites).polygons().map(d3.polygonCentroid);
-    diagram = voronoi(sites);
-    polygons = diagram.polygons();
+
+    let vor = voronoi(sites);
+    diagram = vor;
+    let vertexids = {};
+    let vertices = [];
+    let edges = [];
+    let tris = [];
+    let adj_vx = []; // map of connections between vertices
+
+    vor.edges.forEach( (e, i) => {
+
+        // some edges are not defined as they go "off" the screen
+        if (typeof (e) === 'undefined') return;
+
+        // get the 2 vertices of the edge and see if it's a position we know
+        // about yet or not. If we don't know about it (undefined in the KV map)
+        // then we add it to the list of all the vertices in the graph.
+
+        let v0 = vertexids[e[0]];
+        let v1 = vertexids[e[1]];
+
+        if (v0 == undefined) {
+            v0 = vertices.length;
+            vertexids[e[0]] = v0;
+            vertices.push(e[0]);
+        }
+
+        if (v1 == undefined) {
+            v1 = vertices.length;
+            vertexids[e[1]] = v1;
+            vertices.push(e[1]);
+        }
+
+        // now consider the points that are adjacent to each other and
+        // build up an adjancency map.
+        adj_vx[v0] = adj_vx[v0] || []; // check if vertex has adjacent vertices if not make a list
+        adj_vx[v0].push(v1);
+        adj_vx[v1] = adj_vx[v1] || []; // as above but other end of the edge
+        adj_vx[v1].push(v0);
+        // create a list of edges and the polygons they reference on either side
+        // of that edge.
+        edges.push([v0, v1, e.left, e.right]);
+
+        // look at the edge and the polygons it separates and put the polygon
+        // coordinates into the triangle list. (as a triangle will be the
+        // edge between two polygons subtending the polygon coords).
+        tris[v0] = tris[v0] || []
+        if (! tris[v0].includes(e.left)) {
+            tris[v0].push(e.left);
+        }
+        if (e.right && ! tris[v0].includes(e.right)) {
+            tris[v0].push(e.right);
+        }
+        tris[v1] = tris[v1] || []
+        if (! tris[v1].includes(e.left)) {
+            tris[v1].push(e.left);
+        }
+        if (e.right && ! tris[v1].includes(e.right)) {
+            tris[v1].push(e.right);
+        }
+
+
+    });
+    // `vertices` is now a list of all vertex points in the graph
+    // `vertexids` is a mapping between these points and their index in the 
+    //      `vertices` array.
+    // `adj_vx` is a list of vertices that are linked to each other by edges
+    // `tris` is a list of points for each triangle
+
+    mesh = {
+        points: sites,
+        voronoi: diagram,
+        tris: tris,
+        edges: edges,
+        vertices: vertices,
+        adjacent_vx: adj_vx,
+    };
+
+    // if we do an operation on the mesh, apply it to the vertices
+    mesh.map = function (f) {
+        var mapped = vertices.map(f);
+        mapped.mesh = mesh;
+        return mapped;
+    };
+
+    // TODO refactor this out.
+    /**polygons = diagram.polygons();
     poly_links = diagram.links();
 
     // do some initialisation;
@@ -285,7 +412,8 @@ function initialise_mesh() {
         });
         p.neighbours = neighbours;
 
-    });
+    });**/
+
 }
 
 
@@ -301,8 +429,9 @@ function generate_map() {
         .attr('height', height);
 
     initialise_mesh();
-
     draw_mesh();
+
+/**    draw_mesh();
 
     for (let i = 0; i < num_islands; i++) {
         if (i < 2) {
@@ -314,7 +443,7 @@ function generate_map() {
     }
 
     draw_coastline();
-    colour_polys();
+    colour_polys();**/
 }
 
 var svg = d3n.createSVG()
