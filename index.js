@@ -25,8 +25,17 @@ const show = {
     msl: 0.1,
 };
 
+const options = {
+  svgStyles: styles,
+  d3Module: d3
+};
+
+const d3n = new D3Node(options);
+
+var mesh;
 var diagram, polygons;
 var polys, poly_links;
+var tris;
 var sites = [];
 var coastline;
 
@@ -234,9 +243,11 @@ function draw_mesh() {
     }
 }
 
-function generate_map() {
-    console.log("generating map");
+function initialise_mesh() {
+    // iniitalise the mesh with all the baseline data in one place
 
+    console.log("initialising mesh data");
+    // create the initial set of points.
     sites = d3.range(site_num).map( () => {
         return [
             Math.random() * width * 0.98 + width * 0.01,
@@ -244,13 +255,6 @@ function generate_map() {
         ];
 
     });
-
-    svg.append('rect')
-        .attr('class', 'background')
-        .attr('x', 0)
-        .attr('y', 0)
-        .attr('width', width)
-        .attr('height', height);
 
     var voronoi = d3.voronoi().extent([ [0, 0], [width, height] ]);
     sites = voronoi(sites).polygons().map(d3.polygonCentroid);
@@ -282,6 +286,21 @@ function generate_map() {
         p.neighbours = neighbours;
 
     });
+}
+
+
+function generate_map() {
+    console.log("generating map");
+
+
+    svg.append('rect')
+        .attr('class', 'background')
+        .attr('x', 0)
+        .attr('y', 0)
+        .attr('width', width)
+        .attr('height', height);
+
+    initialise_mesh();
 
     draw_mesh();
 
@@ -297,15 +316,6 @@ function generate_map() {
     draw_coastline();
     colour_polys();
 }
-
-
-
-const options = {
-  svgStyles: styles,
-  d3Module: d3
-};
-
-var d3n = new D3Node(options);
 
 var svg = d3n.createSVG()
     .attr("width", width)
