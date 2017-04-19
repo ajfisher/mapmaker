@@ -39,10 +39,13 @@ var mesh;
 var diagram, polygons;
 var polys, poly_links;
 var tris;
+var hmap;
 var sites = [];
+
 var coastline;
 
-var color = d3.scaleSequential(d3c.interpolateSpectral);
+//var color = d3.scaleSequential(d3c.interpolateSpectral);
+var color = d3.scaleSequential(d3.interpolateViridis);
 
 function create_island(options) {
 
@@ -216,7 +219,12 @@ function draw_mesh() {
             .append("path")
             .attr('id', (d,i) => i)
             .attr('d', d => ("M" + d.join("L") + "Z"))
-            .attr('fill', (d, i) => color(i/site_num) );
+            .attr('blah', d => {
+                //console.log("---");
+                //console.log(d);
+            })
+            //.attr('fill', (d, i) => color(i/site_num) );
+            .attr('fill', (d, i) => color(hmap[i]));
     }
     if (show.polys) {
         // show the cells
@@ -369,6 +377,8 @@ function initialise_mesh() {
     // `adj_vx` is a list of vertices that are linked to each other by edges
     // `tris` is a list of points for each triangle
 
+    console.log(vertices);
+
     mesh = {
         points: sites,
         voronoi: diagram,
@@ -377,6 +387,11 @@ function initialise_mesh() {
         vertices: vertices,
         adjacent_vx: adj_vx,
     };
+
+    hmap = [];
+    for (let i = 0; i < mesh.vertices.length; i++ ) {
+        hmap[i] = Math.random();
+    }
 
     // if we do an operation on the mesh, apply it to the vertices
     mesh.map = function (f) {
@@ -416,6 +431,13 @@ function initialise_mesh() {
 
 }
 
+function add_hill() {
+    //adds a random hill to the heightmap
+    //
+
+
+
+}
 
 function generate_map() {
     console.log("generating map");
@@ -430,6 +452,8 @@ function generate_map() {
 
     initialise_mesh();
     draw_mesh();
+
+    add_hill();
 
 /**    draw_mesh();
 
