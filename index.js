@@ -13,7 +13,7 @@ const styles = require('./lib/styles');
 const width = 1350;
 const height = 780;
 
-const site_num = 400;
+const site_num = 4000;
 const num_islands = process.argv[2] || 10;
 
 const show_initial_points = false;
@@ -23,8 +23,8 @@ const show = {
     links: false,
     polys: false,
     tripolys: true,
-    vertices: true,
-    v_edges: true,
+    vertices: false,
+    v_edges: false,
     msl: 0.1,
 };
 
@@ -428,9 +428,50 @@ function initialise_mesh() {
 
 }
 
+function normalise_heightmap() {
+    // takes the heightmap and renormalises it again.
+
+    let lo = d3.min(mesh.hmap);
+    let hi = d3.max(mesh.hmap);
+    let range = d3.max(mesh.hmap) - d3.min(mesh.hmap);
+
+    mesh.hmap = mesh.hmap.map( z => (z - lo) / range );
+}
+
+function slope(direction) {
+    mesh.vertices.forEach( (v, i) => {
+        console.log(direction, v, i);
+        mesh.hmap[i] =  v[0] * direction[0] + v[1] * direction[1];
+        console.log(mesh.hmap[i]);
+    });
+}
+
 function add_hill() {
     //adds a random hill to the heightmap
     //
+
+    let r = 0.5; // arbitrary radius;
+    // choose a random location
+
+    let m = [ (Math.random() - 0.5) * width, (Math.random() - 0.5) * height];
+
+    mesh.vertices.forEach( (p, i) => {
+
+        let x = p[0] - m[0];
+        let y = p[1] - m[1];
+        let x2 = x * x;
+        let y2 = y*y;
+        let xpy = x2 + y2;
+        let rad = (2 * r * r);
+        let exp = xpy/rad;
+        let pow = Math.pow(exp, 2);
+
+        console.log(p, m, x, y, x2, y2, xpy, rad, exp, pow);
+        let h = Math.pow(Math.exp(-((p[0] - m[0]) * (p[0] - m[0]) + (p[1] - m[1]) * (p[1] - m[1])) / (2 * r * r)), 2);
+        console.log(h);
+        console.log("---");
+    });
+
 
 
 
@@ -448,10 +489,13 @@ function generate_map() {
         .attr('height', height);
 
     initialise_mesh();
+
+    //add_hill();
+    slope([-2.000, -1.000]);
+    normalise_heightmap();
+
     draw_mesh();
-
-    add_hill();
-
+    draw_coastline();
 /**    draw_mesh();
 
     for (let i = 0; i < num_islands; i++) {
