@@ -39,7 +39,6 @@ var mesh;
 var diagram, polygons;
 var polys, poly_links;
 var tris;
-var hmap;
 var sites = [];
 
 var coastline;
@@ -219,12 +218,7 @@ function draw_mesh() {
             .append("path")
             .attr('id', (d,i) => i)
             .attr('d', d => ("M" + d.join("L") + "Z"))
-            .attr('blah', d => {
-                //console.log("---");
-                //console.log(d);
-            })
-            //.attr('fill', (d, i) => color(i/site_num) );
-            .attr('fill', (d, i) => color(hmap[i]));
+            .attr('fill', (d, i) => color(mesh.hmap[i]));
     }
     if (show.polys) {
         // show the cells
@@ -371,13 +365,19 @@ function initialise_mesh() {
 
 
     });
+
+    let hmap = [];
+    // zero the hmap out.
+    for (let i = 0; i < vertices.length; i++ ) {
+        hmap[i] = 0.0;
+    }
+
     // `vertices` is now a list of all vertex points in the graph
-    // `vertexids` is a mapping between these points and their index in the 
+    // `vertexids` is a mapping between these points and their index in the
     //      `vertices` array.
     // `adj_vx` is a list of vertices that are linked to each other by edges
     // `tris` is a list of points for each triangle
-
-    console.log(vertices);
+    // `hmap` is a list of heights indexed for each vertex.
 
     mesh = {
         points: sites,
@@ -386,12 +386,9 @@ function initialise_mesh() {
         edges: edges,
         vertices: vertices,
         adjacent_vx: adj_vx,
+        hmap: hmap,
     };
 
-    hmap = [];
-    for (let i = 0; i < mesh.vertices.length; i++ ) {
-        hmap[i] = Math.random();
-    }
 
     // if we do an operation on the mesh, apply it to the vertices
     mesh.map = function (f) {
