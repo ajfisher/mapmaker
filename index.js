@@ -13,7 +13,7 @@ const styles = require('./lib/styles');
 const width = 1350;
 const height = 780;
 
-const site_num = 4000;
+const site_num = 9000;
 const num_islands = process.argv[2] || 10;
 
 const show_initial_points = false;
@@ -25,7 +25,7 @@ const show = {
     tripolys: true,
     vertices: false,
     v_edges: false,
-    msl: 0.1,
+    msl: 0.2,
 };
 
 const options = {
@@ -143,7 +143,25 @@ function contour(height) {
     let contour_line = "";
     let contour_edges = [];
 
-    polygons.forEach( (p, i) => {
+    mesh.edges.forEach( (e, i) => {
+        //console.log(e);
+        if (e[3] == undefined) return;
+        if ((mesh.hmap[e[0]] > height && mesh.hmap[e[1]] <= height) ||
+            (mesh.hmap[e[1]] > height && mesh.hmap[e[0]] <= height)) {
+                contour_edges.push(e[2], e[3]);
+                contour_line = contour_line + "M" + e[2].data + "L" + e[3].data;
+        }
+    });
+
+/**    mesh.vertices.forEach( (vx, i) => {
+        if (mesh.hmap[i] > h) {
+            // look at the height of neighbours
+            console.log(vx);
+        }
+    });
+**/
+
+/**    polygons.forEach( (p, i) => {
         if (p.height > h) {
 
             diagram.cells[i].halfedges.forEach( e => {
@@ -165,13 +183,14 @@ function contour(height) {
                         svg_line += "Q"
                         svg_line += edge[0][0] + ((edge[0][0] - polygons[edgeidx].data[0]) *0.5) + ',';
                         svg_line += edge[0][1] + ((edge[0][1] - polygons[edgeidx].data[1]) *0.5);
-                        svg_line += ", " + edge[1];**/
+                        svg_line += ", " + edge[1];
                         contour_edges.push(edge);
                     }
                 }
             });
         }
     });
+**/
 
     return ( { edges: contour_edges, line: contour_line });
 }
@@ -343,6 +362,8 @@ function initialise_mesh() {
         adj_vx[v1].push(v0);
         // create a list of edges and the polygons they reference on either side
         // of that edge.
+        //if (e.right !== undefined) console.log(e);
+
         edges.push([v0, v1, e.left, e.right]);
 
         // look at the edge and the polygons it separates and put the polygon
@@ -440,9 +461,7 @@ function normalise_heightmap() {
 
 function slope(direction) {
     mesh.vertices.forEach( (v, i) => {
-        console.log(direction, v, i);
         mesh.hmap[i] =  v[0] * direction[0] + v[1] * direction[1];
-        console.log(mesh.hmap[i]);
     });
 }
 
